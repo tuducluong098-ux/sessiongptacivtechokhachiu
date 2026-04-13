@@ -27,6 +27,25 @@ h1{
   font-size:14px;
   color:#4b5563;
 }
+.top-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-bottom:10px;
+}
+.small-btn{
+  border:none;
+  border-radius:10px;
+  background:#111827;
+  color:#fff;
+  padding:8px 12px;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+}
+.small-btn:hover{
+  background:#374151;
+}
 .card-list{
   display:flex;
   flex-direction:column;
@@ -47,23 +66,37 @@ h1{
   width:110px;
   flex-shrink:0;
 }
+.action-stack{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
 .info-wrap{
   flex:1;
   min-width:0;
 }
-.copy-btn{
+.copy-btn,
+.delete-btn{
   width:100%;
   min-height:56px;
   font-size:18px;
   font-weight:bold;
   border:none;
   border-radius:12px;
-  background:#000;
   color:#fff;
   cursor:pointer;
 }
+.copy-btn{
+  background:#000;
+}
 .copy-btn:hover{
   background:#333;
+}
+.delete-btn{
+  background:#dc2626;
+}
+.delete-btn:hover{
+  background:#b91c1c;
 }
 .meta{
   display:grid;
@@ -93,12 +126,91 @@ h1{
   border-radius:14px;
   color:#6b7280;
 }
+.refresh-btn{
+  position:fixed;
+  top:12px;
+  right:12px;
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  border:none;
+  background:#111827;
+  color:#fff;
+  font-size:18px;
+  font-weight:bold;
+  cursor:pointer;
+  box-shadow:0 4px 10px rgba(0,0,0,0.2);
+  z-index:999;
+}
+.refresh-btn:hover{
+  background:#374151;
+}
+.refresh-btn:active{
+  transform:scale(0.95);
+}
+.popup-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.4);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  z-index:9999;
+}
+.popup-overlay.show{
+  display:flex;
+}
+.popup-box{
+  width:100%;
+  max-width:360px;
+  background:#fff;
+  border-radius:16px;
+  padding:18px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.18);
+}
+.popup-title{
+  font-size:20px;
+  font-weight:700;
+  margin-bottom:8px;
+}
+.popup-text{
+  font-size:15px;
+  color:#4b5563;
+  line-height:1.5;
+  margin-bottom:14px;
+}
+.popup-actions{
+  display:flex;
+  gap:10px;
+}
+.popup-cancel,
+.popup-confirm{
+  flex:1;
+  border:none;
+  border-radius:12px;
+  min-height:46px;
+  font-size:16px;
+  font-weight:700;
+  cursor:pointer;
+}
+.popup-cancel{
+  background:#e5e7eb;
+  color:#111827;
+}
+.popup-confirm{
+  background:#dc2626;
+  color:#fff;
+}
+
 @media (max-width: 560px){
   .container{
     padding:10px;
   }
   h1{
     font-size:20px;
+    padding-right:48px;
+    padding-left:48px;
   }
   .row{
     gap:8px;
@@ -106,7 +218,8 @@ h1{
   .copy-wrap{
     width:92px;
   }
-  .copy-btn{
+  .copy-btn,
+  .delete-btn{
     min-height:52px;
     font-size:16px;
     border-radius:10px;
@@ -118,23 +231,86 @@ h1{
     font-size:11px;
     padding:9px;
   }
+  .refresh-btn{
+    top:10px;
+    right:10px;
+    width:38px;
+    height:38px;
+    font-size:16px;
+  }
+  .small-btn{
+    font-size:12px;
+    padding:7px 10px;
+  }
 }
 </style>
 </head>
 
 <body>
+
+<button class="refresh-btn" onclick="refreshPage()" title="Làm mới">↻</button>
+
 <div class="container">
   <h1>Danh sách khách gửi session</h1>
+
+  <div class="top-actions">
+    <button class="small-btn" onclick="resetHiddenItems()">Hiện lại mục đã xoá</button>
+  </div>
+
   <div id="status" class="status">Đang tải...</div>
   <div id="table"></div>
+</div>
+
+<div id="deletePopup" class="popup-overlay">
+  <div class="popup-box">
+    <div class="popup-title">Xác nhận xoá</div>
+    <div class="popup-text">Bạn có chắc muốn ẩn mục này khỏi màn hình web không? Dữ liệu trên Sheet vẫn giữ nguyên.</div>
+    <div class="popup-actions">
+      <button class="popup-cancel" onclick="closeDeletePopup()">Huỷ</button>
+      <button class="popup-confirm" onclick="confirmDelete()">Xoá</button>
+    </div>
+  </div>
 </div>
 
 <script>
 const SHEET_ID = "1Bvg3Sews-W1881wuI3SMPqtxP2elIWVNX9Z6gUJYxqs";
 const SHEET_GID = "312835306";
+const HIDDEN_ITEMS_KEY = "hidden_session_items_v1";
+
+let cardToDelete = null;
+let deleteKey = null;
 
 function getUrl(){
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${SHEET_GID}&tqx=out:json`;
+}
+
+function getHiddenItems(){
+  try{
+    const raw = localStorage.getItem(HIDDEN_ITEMS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch{
+    return [];
+  }
+}
+
+function saveHiddenItems(items){
+  localStorage.setItem(HIDDEN_ITEMS_KEY, JSON.stringify(items));
+}
+
+function addHiddenItem(key){
+  const items = getHiddenItems();
+  if(!items.includes(key)){
+    items.push(key);
+    saveHiddenItems(items);
+  }
+}
+
+function isHiddenItem(key){
+  return getHiddenItems().includes(key);
+}
+
+function makeRowKey(time, email, social, session){
+  return [time || '', email || '', social || '', session || ''].join('||');
 }
 
 function copyText(text, btn){
@@ -142,6 +318,16 @@ function copyText(text, btn){
   const old = btn.innerText;
   btn.innerText = "Đã copy";
   setTimeout(() => btn.innerText = old, 1500);
+}
+
+function refreshPage(){
+  const btn = document.querySelector('.refresh-btn');
+  btn.innerText = "⟳";
+  document.getElementById("status").innerText = "Đang tải lại...";
+  load();
+  setTimeout(() => {
+    btn.innerText = "↻";
+  }, 500);
 }
 
 function escapeHtml(text){
@@ -183,6 +369,42 @@ function previewText(text){
   return `${s.slice(0,12)}....${s.slice(-12)}`;
 }
 
+function askDelete(btn, key){
+  cardToDelete = btn.closest('.card');
+  deleteKey = key;
+  document.getElementById('deletePopup').classList.add('show');
+}
+
+function closeDeletePopup(){
+  cardToDelete = null;
+  deleteKey = null;
+  document.getElementById('deletePopup').classList.remove('show');
+}
+
+function confirmDelete(){
+  if(cardToDelete && deleteKey){
+    addHiddenItem(deleteKey);
+    cardToDelete.remove();
+    updateVisibleCount();
+  }
+  closeDeletePopup();
+}
+
+function updateVisibleCount(){
+  const total = document.querySelectorAll('.card-list .card').length;
+  document.getElementById("status").innerText = `Tổng: ${total} khách`;
+
+  if(total === 0){
+    document.getElementById("table").innerHTML = '<div class="empty">Không còn mục nào đang hiển thị</div>';
+  }
+}
+
+function resetHiddenItems(){
+  localStorage.removeItem(HIDDEN_ITEMS_KEY);
+  document.getElementById("status").innerText = "Đang tải lại...";
+  load();
+}
+
 async function load(){
   try{
     const res = await fetch(getUrl());
@@ -195,14 +417,8 @@ async function load(){
     const data = rows.map(r => (r.c || []).map(c => c ? (c.f || c.v || '') : ''));
     data.reverse();
 
-    document.getElementById("status").innerText = `Tổng: ${data.length} khách`;
-
-    if(!data.length){
-      document.getElementById("table").innerHTML = '<div class="empty">Chưa có dữ liệu</div>';
-      return;
-    }
-
     let html = '<div class="card-list">';
+    let visibleCount = 0;
 
     data.forEach((row) => {
       const time = formatTime(row[0] || '');
@@ -211,12 +427,21 @@ async function load(){
       const session = row[row.length - 1] || '';
       const preview = previewText(session);
       const safeSession = encodeURIComponent(String(session));
+      const rowKey = makeRowKey(time, email, social, session);
+      const safeRowKey = encodeURIComponent(rowKey);
+
+      if(isHiddenItem(rowKey)) return;
+
+      visibleCount++;
 
       html += `
         <div class="card">
           <div class="row">
             <div class="copy-wrap">
-              <button class="copy-btn" onclick="copyText(decodeURIComponent('${safeSession}'), this)">COPY</button>
+              <div class="action-stack">
+                <button class="copy-btn" onclick="copyText(decodeURIComponent('${safeSession}'), this)">COPY</button>
+                <button class="delete-btn" onclick="askDelete(this, decodeURIComponent('${safeRowKey}'))">DELETE</button>
+              </div>
             </div>
             <div class="info-wrap">
               <div class="meta">
@@ -232,6 +457,14 @@ async function load(){
     });
 
     html += '</div>';
+
+    document.getElementById("status").innerText = `Tổng: ${visibleCount} khách`;
+
+    if(visibleCount === 0){
+      document.getElementById("table").innerHTML = '<div class="empty">Không còn mục nào đang hiển thị</div>';
+      return;
+    }
+
     document.getElementById("table").innerHTML = html;
 
   }catch(e){
@@ -239,6 +472,13 @@ async function load(){
     document.getElementById("table").innerHTML = '<div class="empty">Kiểm tra lại quyền chia sẻ Sheet hoặc gid.</div>';
   }
 }
+
+document.addEventListener('click', function(e){
+  const popup = document.getElementById('deletePopup');
+  if(e.target === popup){
+    closeDeletePopup();
+  }
+});
 
 load();
 </script>
