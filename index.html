@@ -8,75 +8,116 @@
 <style>
 body{
   margin:0;
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   background:#f4f6fb;
+  color:#111827;
 }
-
 .container{
-  max-width:1200px;
+  max-width:900px;
   margin:auto;
-  padding:20px;
+  padding:12px;
 }
-
 h1{
   text-align:center;
-  margin-bottom:20px;
+  margin:0 0 14px;
+  font-size:22px;
 }
-
-.table-wrap{
-  overflow:auto;
+.status{
+  margin-bottom:10px;
+  font-size:14px;
+  color:#4b5563;
+}
+.card-list{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.card{
   background:#fff;
-  border-radius:12px;
+  border-radius:14px;
   box-shadow:0 4px 10px rgba(0,0,0,0.05);
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  min-width:1000px;
-}
-
-th, td{
   padding:12px;
-  border-bottom:1px solid #eee;
-  text-align:left;
 }
-
-th{
-  background:#f9fafb;
-  position:sticky;
-  top:0;
+.row{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
 }
-
-.code{
-  background:#111827;
-  color:#e5e7eb;
-  padding:10px;
-  border-radius:8px;
-  font-size:12px;
-  max-height:200px;
-  overflow:auto;
-  white-space:pre-wrap;
+.copy-wrap{
+  width:110px;
+  flex-shrink:0;
 }
-
+.info-wrap{
+  flex:1;
+  min-width:0;
+}
 .copy-btn{
   width:100%;
-  height:50px;
+  min-height:56px;
   font-size:18px;
   font-weight:bold;
   border:none;
-  border-radius:10px;
+  border-radius:12px;
   background:#000;
   color:#fff;
   cursor:pointer;
 }
-
 .copy-btn:hover{
   background:#333;
 }
-
-.status{
-  margin-bottom:10px;
+.meta{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:6px;
+  font-size:14px;
+  margin-bottom:8px;
+}
+.label{
+  color:#6b7280;
+  font-weight:700;
+  margin-right:6px;
+}
+.preview{
+  background:#111827;
+  color:#e5e7eb;
+  padding:10px;
+  border-radius:10px;
+  font-size:12px;
+  line-height:1.45;
+  word-break:break-word;
+}
+.empty{
+  text-align:center;
+  padding:30px 12px;
+  background:#fff;
+  border-radius:14px;
+  color:#6b7280;
+}
+@media (max-width: 560px){
+  .container{
+    padding:10px;
+  }
+  h1{
+    font-size:20px;
+  }
+  .row{
+    gap:8px;
+  }
+  .copy-wrap{
+    width:92px;
+  }
+  .copy-btn{
+    min-height:52px;
+    font-size:16px;
+    border-radius:10px;
+  }
+  .meta{
+    font-size:13px;
+  }
+  .preview{
+    font-size:11px;
+    padding:9px;
+  }
 }
 </style>
 </head>
@@ -85,7 +126,6 @@ th{
 <div class="container">
   <h1>Danh sách khách gửi session</h1>
   <div id="status" class="status">Đang tải...</div>
-
   <div id="table"></div>
 </div>
 
@@ -97,63 +137,106 @@ function getUrl(){
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${SHEET_GID}&tqx=out:json`;
 }
 
-function copyText(text,btn){
-  navigator.clipboard.writeText(text);
+function copyText(text, btn){
+  navigator.clipboard.writeText(text || '');
+  const old = btn.innerText;
   btn.innerText = "Đã copy";
-  setTimeout(()=>btn.innerText="COPY",1500);
+  setTimeout(() => btn.innerText = old, 1500);
 }
 
 function escapeHtml(text){
-  return String(text)
-  .replace(/&/g,'&amp;')
-  .replace(/</g,'&lt;')
-  .replace(/>/g,'&gt;');
+  return String(text || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
+function formatTime(value){
+  if(!value) return '';
+
+  const date = new Date(value);
+  if(!isNaN(date.getTime())){
+    const hh = String(date.getHours()).padStart(2,'0');
+    const mm = String(date.getMinutes()).padStart(2,'0');
+    const dd = String(date.getDate()).padStart(2,'0');
+    const mo = String(date.getMonth()+1).padStart(2,'0');
+    return `${hh}h${mm} ${dd}/${mo}`;
+  }
+
+  const text = String(value).trim();
+  const m = text.match(/(\d{1,2})[:h](\d{2}).*?(\d{1,2})\/(\d{1,2})/);
+  if(m){
+    const hh = String(m[1]).padStart(2,'0');
+    const mm = String(m[2]).padStart(2,'0');
+    const dd = String(m[3]).padStart(2,'0');
+    const mo = String(m[4]).padStart(2,'0');
+    return `${hh}h${mm} ${dd}/${mo}`;
+  }
+  return text;
+}
+
+function previewText(text){
+  const s = String(text || '').replace(/\s+/g,' ').trim();
+  if(s.length <= 36) return s;
+  return `${s.slice(0,12)}....${s.slice(-12)}`;
 }
 
 async function load(){
   try{
     const res = await fetch(getUrl());
     const text = await res.text();
-    const json = JSON.parse(text.match(/\((.*)\)/s)[1]);
+    const match = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
+    if(!match) throw new Error('Không đọc được dữ liệu');
+    const json = JSON.parse(match[1]);
 
-    const rows = json.table.rows;
-    const cols = json.table.cols.map(c=>c.label);
-
-    const data = rows.map(r=>{
-      return r.c.map(c=>c?c.v:'');
-    });
-
+    const rows = json.table.rows || [];
+    const data = rows.map(r => (r.c || []).map(c => c ? (c.f || c.v || '') : ''));
     data.reverse();
 
-    document.getElementById("status").innerText = "Tổng: "+data.length+" khách";
+    document.getElementById("status").innerText = `Tổng: ${data.length} khách`;
 
-    let html = `<div class="table-wrap"><table><thead><tr>`;
+    if(!data.length){
+      document.getElementById("table").innerHTML = '<div class="empty">Chưa có dữ liệu</div>';
+      return;
+    }
 
-    cols.forEach(c=> html+=`<th>${c}</th>`);
-    html += `<th>Copy</th></tr></thead><tbody>`;
+    let html = '<div class="card-list">';
 
-    data.forEach((row,i)=>{
-      html += "<tr>";
+    data.forEach((row) => {
+      const time = formatTime(row[0] || '');
+      const email = row[1] || '';
+      const social = row[2] || '';
+      const session = row[row.length - 1] || '';
+      const preview = previewText(session);
+      const safeSession = encodeURIComponent(String(session));
 
-      row.forEach((cell,index)=>{
-        if(index===row.length-1){
-          html += `<td><div class="code">${escapeHtml(cell)}</div></td>`;
-        }else{
-          html += `<td>${cell||''}</td>`;
-        }
-      });
-
-      html += `<td><button class="copy-btn" onclick="copyText(\`${row[row.length-1]||''}\`,this)">COPY</button></td>`;
-
-      html += "</tr>";
+      html += `
+        <div class="card">
+          <div class="row">
+            <div class="copy-wrap">
+              <button class="copy-btn" onclick="copyText(decodeURIComponent('${safeSession}'), this)">COPY</button>
+            </div>
+            <div class="info-wrap">
+              <div class="meta">
+                <div><span class="label">Thời gian:</span>${escapeHtml(time)}</div>
+                <div><span class="label">Email:</span>${escapeHtml(email)}</div>
+                <div><span class="label">FB/Zalo:</span>${escapeHtml(social)}</div>
+                <div><span class="label">Session:</span></div>
+              </div>
+              <div class="preview">${escapeHtml(preview)}</div>
+            </div>
+          </div>
+        </div>`;
     });
 
-    html += "</tbody></table></div>";
-
+    html += '</div>';
     document.getElementById("table").innerHTML = html;
 
   }catch(e){
     document.getElementById("status").innerText = "Lỗi load dữ liệu";
+    document.getElementById("table").innerHTML = '<div class="empty">Kiểm tra lại quyền chia sẻ Sheet hoặc gid.</div>';
   }
 }
 
