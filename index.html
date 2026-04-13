@@ -1,304 +1,164 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Danh sách code khách gửi 1</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: #f5f7fb;
-      color: #1f2937;
-    }
-    .wrap {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .topbar {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-bottom: 18px;
-    }
-    h1 {
-      font-size: 24px;
-      margin: 0;
-      width: 100%;
-    }
-    .input, .btn {
-      border-radius: 12px;
-      border: 1px solid #d1d5db;
-      background: #fff;
-      min-height: 44px;
-      font-size: 15px;
-    }
-    .input {
-      flex: 1 1 260px;
-      padding: 10px 14px;
-    }
-    .btn {
-      padding: 0 16px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    .btn:hover { background: #f3f4f6; }
-    .status {
-      margin: 8px 0 16px;
-      font-size: 14px;
-      color: #6b7280;
-    }
-    .list {
-      display: grid;
-      gap: 14px;
-    }
-    .card {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.04);
-    }
-    .meta {
-      display: grid;
-      gap: 6px;
-      margin-bottom: 12px;
-      font-size: 14px;
-    }
-    .label {
-      color: #6b7280;
-      font-weight: 600;
-      margin-right: 6px;
-    }
-    .content {
-      background: #0f172a;
-      color: #e5e7eb;
-      border-radius: 12px;
-      padding: 14px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: Consolas, Monaco, monospace;
-      font-size: 13px;
-      line-height: 1.45;
-      max-height: 260px;
-      overflow: auto;
-    }
-    .actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 12px;
-      flex-wrap: wrap;
-    }
-    .copy-btn {
-      background: #111827;
-      color: #fff;
-      border: none;
-    }
-    .copy-btn:hover { background: #000; }
-    .muted-btn {
-      background: #fff;
-    }
-    .empty {
-      text-align: center;
-      color: #6b7280;
-      padding: 32px 12px;
-      background: #fff;
-      border: 1px dashed #d1d5db;
-      border-radius: 16px;
-    }
-    .small {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 10px;
-      line-height: 1.5;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Danh sách khách gửi session</title>
+
+<style>
+body{
+  margin:0;
+  font-family: Arial;
+  background:#f4f6fb;
+}
+
+.container{
+  max-width:1200px;
+  margin:auto;
+  padding:20px;
+}
+
+h1{
+  text-align:center;
+  margin-bottom:20px;
+}
+
+.table-wrap{
+  overflow:auto;
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.05);
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:1000px;
+}
+
+th, td{
+  padding:12px;
+  border-bottom:1px solid #eee;
+  text-align:left;
+}
+
+th{
+  background:#f9fafb;
+  position:sticky;
+  top:0;
+}
+
+.code{
+  background:#111827;
+  color:#e5e7eb;
+  padding:10px;
+  border-radius:8px;
+  font-size:12px;
+  max-height:200px;
+  overflow:auto;
+  white-space:pre-wrap;
+}
+
+.copy-btn{
+  width:100%;
+  height:50px;
+  font-size:18px;
+  font-weight:bold;
+  border:none;
+  border-radius:10px;
+  background:#000;
+  color:#fff;
+  cursor:pointer;
+}
+
+.copy-btn:hover{
+  background:#333;
+}
+
+.status{
+  margin-bottom:10px;
+}
+</style>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="topbar">
-      <h1>Danh sách code khách gửi</h1>
-      <input id="searchInput" class="input" type="text" placeholder="Tìm theo email / Facebook / Zalo" />
-      <button id="reloadBtn" class="btn">Tải lại</button>
-    </div>
+<div class="container">
+  <h1>Danh sách khách gửi session</h1>
+  <div id="status" class="status">Đang tải...</div>
 
-    <div id="status" class="status">Đang tải dữ liệu...</div>
-    <div id="list" class="list"></div>
+  <div id="table"></div>
+</div>
 
-    <div class="small">
-      Gợi ý: Web này chỉ để bạn xem và bấm copy 1 cái. Để dùng được, bạn cần dán link sheet ở phần cấu hình trong file này.
-    </div>
-  </div>
+<script>
+const SHEET_ID = "1Bvg3Sews-W1881wuI3SMPqtxP2elIWVNX9Z6gUJYxqs";
+const SHEET_GID = "312835306";
 
-  <script>
-    /**
-     * ==========================
-     * CẤU HÌNH DUY NHẤT CẦN SỬA
-     * ==========================
-     * Dán SHEET_ID và SHEET_GID của bạn vào đây.
-     *
-     * Ví dụ link sheet:
-     * https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStuVwXyZ1234567890/edit#gid=0
-     *
-     * SHEET_ID = 1AbCdEfGhIjKlMnOpQrStuVwXyZ1234567890
-     * SHEET_GID = 0
-     */
-    const SHEET_ID = "1Bvg3Sews-W1881wuI3SMPqtxP2elIWVNX9Z6gUJYxqs";
-    const SHEET_GID = "0";
+function getUrl(){
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${SHEET_GID}&tqx=out:json`;
+}
 
-    // Tên cột dự kiến từ Google Form đổ về Sheet
-    const COLUMN_MAP = {
-      timestamp: ["Dấu thời gian", "Timestamp"],
-      email: ["Địa chỉ email (để shop liên hệ)", "Địa chỉ email acc chatgpt", "Email"],
-      social: ["tên facebook hoặc zalo mà bạn đang dùng để nhắn tin với shop ( để shop quản lí tránh nhầm lẫn ạ)", "Tên Facebook/Zalo", "Facebook/Zalo"],
-      content: ["Đoạn code seesion phiên đăng nhập mà bạn thao tác như video. lưu ý: copy hết từ trên xuống dưới warning banner.. đến ..false}}}", "Nội dung", "Code", "Đoạn code"]
-    };
+function copyText(text,btn){
+  navigator.clipboard.writeText(text);
+  btn.innerText = "Đã copy";
+  setTimeout(()=>btn.innerText="COPY",1500);
+}
 
-    const listEl = document.getElementById('list');
-    const statusEl = document.getElementById('status');
-    const searchInput = document.getElementById('searchInput');
-    const reloadBtn = document.getElementById('reloadBtn');
+function escapeHtml(text){
+  return String(text)
+  .replace(/&/g,'&amp;')
+  .replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;');
+}
 
-    let allRows = [];
+async function load(){
+  try{
+    const res = await fetch(getUrl());
+    const text = await res.text();
+    const json = JSON.parse(text.match(/\((.*)\)/s)[1]);
 
-    function getGvizUrl() {
-      return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${SHEET_GID}&tqx=out:json`;
-    }
+    const rows = json.table.rows;
+    const cols = json.table.cols.map(c=>c.label);
 
-    function normalizeText(value) {
-      return String(value || '').trim().toLowerCase();
-    }
+    const data = rows.map(r=>{
+      return r.c.map(c=>c?c.v:'');
+    });
 
-    function getCellValue(cell) {
-      if (!cell) return '';
-      if (cell.f) return cell.f;
-      if (cell.v === null || cell.v === undefined) return '';
-      return String(cell.v);
-    }
+    data.reverse();
 
-    function findColumnIndex(labels, candidates) {
-      const normalizedLabels = labels.map(normalizeText);
-      for (const name of candidates) {
-        const idx = normalizedLabels.indexOf(normalizeText(name));
-        if (idx !== -1) return idx;
-      }
-      return -1;
-    }
+    document.getElementById("status").innerText = "Tổng: "+data.length+" khách";
 
-    function escapeHtml(text) {
-      return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
+    let html = `<div class="table-wrap"><table><thead><tr>`;
 
-    async function copyText(text, button) {
-      try {
-        await navigator.clipboard.writeText(text);
-        const original = button.textContent;
-        button.textContent = 'Đã copy';
-        setTimeout(() => {
-          button.textContent = original;
-        }, 1500);
-      } catch (err) {
-        alert('Copy lỗi. Thử mở bằng Chrome hoặc Safari mới hơn.');
-      }
-    }
+    cols.forEach(c=> html+=`<th>${c}</th>`);
+    html += `<th>Copy</th></tr></thead><tbody>`;
 
-    function render(rows) {
-      const keyword = normalizeText(searchInput.value);
-      const filtered = rows.filter(row => {
-        if (!keyword) return true;
-        return [row.email, row.social, row.content, row.timestamp]
-          .some(v => normalizeText(v).includes(keyword));
-      });
+    data.forEach((row,i)=>{
+      html += "<tr>";
 
-      statusEl.textContent = `Tổng ${filtered.length} mục${keyword ? ` / ${rows.length} toàn bộ` : ''}`;
-
-      if (!filtered.length) {
-        listEl.innerHTML = '<div class="empty">Không có dữ liệu phù hợp.</div>';
-        return;
-      }
-
-      listEl.innerHTML = filtered.map((row, index) => `
-        <div class="card">
-          <div class="meta">
-            <div><span class="label">STT:</span> ${index + 1}</div>
-            <div><span class="label">Thời gian:</span> ${escapeHtml(row.timestamp || '')}</div>
-            <div><span class="label">Email:</span> ${escapeHtml(row.email || '')}</div>
-            <div><span class="label">FB/Zalo:</span> ${escapeHtml(row.social || '')}</div>
-          </div>
-          <div class="content">${escapeHtml(row.content || '')}</div>
-          <div class="actions">
-            <button class="btn copy-btn" data-copy="${index}">Copy nội dung</button>
-          </div>
-        </div>
-      `).join('');
-
-      document.querySelectorAll('[data-copy]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const row = filtered[Number(btn.dataset.copy)];
-          copyText(row.content || '', btn);
-        });
-      });
-    }
-
-    async function loadData() {
-      if (SHEET_ID === 'DAN_SHEET_ID_CUA_BAN_VAO_DAY') {
-        statusEl.textContent = 'Bạn chưa dán SHEET_ID vào file.';
-        listEl.innerHTML = '<div class="empty">Mở file index.html và dán SHEET_ID của Google Sheet vào phần cấu hình.</div>';
-        return;
-      }
-
-      statusEl.textContent = 'Đang tải dữ liệu...';
-      listEl.innerHTML = '';
-
-      try {
-        const response = await fetch(getGvizUrl());
-        const text = await response.text();
-        const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)?.[1];
-
-        if (!jsonText) {
-          throw new Error('Không đọc được dữ liệu từ Google Sheet.');
+      row.forEach((cell,index)=>{
+        if(index===row.length-1){
+          html += `<td><div class="code">${escapeHtml(cell)}</div></td>`;
+        }else{
+          html += `<td>${cell||''}</td>`;
         }
+      });
 
-        const data = JSON.parse(jsonText);
-        const labels = data.table.cols.map(col => col.label || '');
-        const rows = data.table.rows || [];
+      html += `<td><button class="copy-btn" onclick="copyText(\`${row[row.length-1]||''}\`,this)">COPY</button></td>`;
 
-        const timestampIndex = findColumnIndex(labels, COLUMN_MAP.timestamp);
-        const emailIndex = findColumnIndex(labels, COLUMN_MAP.email);
-        const socialIndex = findColumnIndex(labels, COLUMN_MAP.social);
-        const contentIndex = findColumnIndex(labels, COLUMN_MAP.content);
+      html += "</tr>";
+    });
 
-        allRows = rows.map(row => {
-          const cells = row.c || [];
-          return {
-            timestamp: getCellValue(cells[timestampIndex]),
-            email: getCellValue(cells[emailIndex]),
-            social: getCellValue(cells[socialIndex]),
-            content: getCellValue(cells[contentIndex])
-          };
-        }).filter(item => item.content);
+    html += "</tbody></table></div>";
 
-        allRows.reverse();
-        render(allRows);
-      } catch (error) {
-        console.error(error);
-        statusEl.textContent = 'Tải dữ liệu thất bại.';
-        listEl.innerHTML = '<div class="empty">Lỗi tải dữ liệu. Kiểm tra xem Sheet đã chia sẻ đúng chưa và SHEET_ID/GID đã dán đúng chưa.</div>';
-      }
-    }
+    document.getElementById("table").innerHTML = html;
 
-    searchInput.addEventListener('input', () => render(allRows));
-    reloadBtn.addEventListener('click', loadData);
+  }catch(e){
+    document.getElementById("status").innerText = "Lỗi load dữ liệu";
+  }
+}
 
-    loadData();
-  </script>
+load();
+</script>
+
 </body>
 </html>
