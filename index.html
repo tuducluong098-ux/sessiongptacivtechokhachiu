@@ -3,51 +3,105 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Danh sách khách gửi session</title>
+<title>Danh sách session</title>
 
 <style>
 body{margin:0;font-family:Arial;background:#f4f6fb}
 .container{max-width:900px;margin:auto;padding:12px}
-h1{text-align:center;margin-bottom:10px}
-.top{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-input{flex:1;padding:10px;border-radius:10px;border:1px solid #ccc}
-button{border:none;border-radius:10px;padding:8px 12px;font-weight:bold;cursor:pointer}
-.small{background:#111;color:#fff}
-.card{background:#fff;border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:0 4px 10px rgba(0,0,0,0.05)}
+h1{text-align:center}
+
+.top{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:10px;
+}
+
+.search{
+flex:1;
+padding:10px;
+border-radius:10px;
+border:1px solid #ccc;
+margin-right:8px;
+}
+
+.ctrlz{
+font-size:12px;
+padding:6px 10px;
+background:#111;
+color:#fff;
+border-radius:8px;
+cursor:pointer;
+}
+
+.reload{
+position:fixed;
+top:10px;
+right:10px;
+width:40px;
+height:40px;
+border-radius:50%;
+border:none;
+background:#111;
+color:#fff;
+font-size:18px;
+cursor:pointer;
+}
+
+.card{
+background:#fff;
+border-radius:14px;
+padding:12px;
+margin-bottom:10px;
+box-shadow:0 4px 10px rgba(0,0,0,0.05);
+}
+
 .row{display:flex;gap:10px}
+
 .left{width:100px}
-.copy{background:#000;color:#fff;height:50px;width:100%}
-.del{background:#dc2626;color:#fff;height:50px;width:100%;margin-top:6px}
-.preview{background:#111;color:#fff;padding:10px;border-radius:10px;font-size:12px;cursor:pointer}
+
+.btn{
+width:100%;
+height:50px;
+border:none;
+border-radius:10px;
+color:#fff;
+font-weight:bold;
+cursor:pointer;
+}
+
+.copy{background:#000}
+.del{background:#dc2626;margin-top:6px}
+
+.preview{
+background:#111;
+color:#fff;
+padding:10px;
+border-radius:10px;
+font-size:12px;
+margin-top:6px;
+}
+
 .ok{color:#16a34a;font-weight:bold}
-.bad{color:#dc2626;font-weight:bold;cursor:pointer}
-.none{color:#b45309;font-weight:bold}
-.popup{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center}
-.box{background:#fff;padding:16px;border-radius:12px;max-width:360px;width:100%}
+.bad{color:#dc2626;font-weight:bold}
+
 </style>
 </head>
 
 <body>
 
+<button class="reload" onclick="load()">↻</button>
+
 <div class="container">
-<h1>Danh sách khách gửi session</h1>
+<h1>Danh sách khách</h1>
 
 <div class="top">
-<input id="search" placeholder="Tìm email..." oninput="render()">
-<button class="small" onclick="undo()">Hiện lại mục vừa xoá</button>
+<input id="search" class="search" placeholder="Tìm email..." oninput="render()">
+<div class="ctrlz" onclick="undo()">Ctrl Z</div>
 </div>
 
 <div id="status"></div>
-<div id="stats"></div>
 <div id="list"></div>
-</div>
-
-<div id="popup" class="popup">
-<div class="box">
-<div id="popupText"></div>
-<br>
-<button onclick="closePopup()">Đóng</button>
-</div>
 </div>
 
 <script>
@@ -67,62 +121,49 @@ if(s.length<40)return s;
 return s.slice(0,12)+"..."+s.slice(-12);
 }
 
-function emails(s){
+function getEmails(s){
 return (s.toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g)||[]);
 }
 
 function check(mail,session){
 mail=mail.toLowerCase().trim();
-const e=emails(session);
-
-if(!e.length)return {t:'none',msg:'Không thấy email'};
-if(e.includes(mail))return {t:'ok',msg:'Khớp email'};
-return {t:'bad',msg:'Không khớp',list:e,mail};
-}
-
-function show(res){
-let html=`Email gốc: <b>${res.mail}</b><br><br>`;
-html+=`Email trong session:<br>`+res.list.map(x=>"• "+x).join("<br>");
-document.getElementById("popupText").innerHTML=html;
-document.getElementById("popup").style.display="flex";
-}
-
-function closePopup(){
-document.getElementById("popup").style.display="none";
+const e=getEmails(session);
+return e.includes(mail);
 }
 
 function render(){
 const q=document.getElementById("search").value.toLowerCase();
 const list=document.getElementById("list");
 list.innerHTML="";
-let count=0,stat={};
+let count=0;
 
-data.forEach(x=>{
+data.forEach((x,i)=>{
 if(x.hidden)return;
 if(q && !x.email.toLowerCase().includes(q))return;
 
 count++;
 
-const c=check(x.email,x.session);
+let checkText="";
+if(i<5){
+checkText = check(x.email,x.session)
+? '<span class="ok">Khớp email</span>'
+: '<span class="bad">Sai email</span>';
+}
 
 const card=document.createElement("div");
 card.className="card";
 
-let cls="none";
-if(c.t==="ok")cls="ok";
-if(c.t==="bad")cls="bad";
-
 card.innerHTML=`
 <div class="row">
 <div class="left">
-<button class="copy">COPY</button>
-<button class="del">DELETE</button>
+<button class="btn copy">COPY</button>
+<button class="btn del">DELETE</button>
 </div>
 <div style="flex:1">
 <div><b>${x.time}</b></div>
 <div>${x.email}</div>
 <div>${x.social}</div>
-<div class="${cls}">${c.msg}</div>
+<div>${checkText}</div>
 <div class="preview">${preview(x.session)}</div>
 </div>
 </div>
@@ -138,24 +179,10 @@ lastDeleted=x;
 render();
 };
 
-card.querySelector(".preview").onclick=()=>{
-if(c.t==="bad")show(c);
-if(c.t==="none"){
-document.getElementById("popupText").innerText="Không tìm thấy email trong session";
-document.getElementById("popup").style.display="flex";
-}
-};
-
 list.appendChild(card);
-
-const d=x.time.slice(-5);
-stat[d]=(stat[d]||0)+1;
 });
 
 document.getElementById("status").innerText="Tổng: "+count;
-
-document.getElementById("stats").innerHTML=
-Object.entries(stat).map(([d,v])=>`<span>${d}: ${v}</span>`).join(" | ");
 }
 
 async function load(){
@@ -169,7 +196,7 @@ return{
 time:c[0]?.f||c[0]?.v||'',
 email:c[1]?.v||'',
 social:c[2]?.v||'',
-session:c[3]?.v||'', // FIX
+session:c[3]?.v||'',
 hidden:false
 };
 }).reverse();
