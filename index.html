@@ -6,207 +6,469 @@
 <title>Danh sách session</title>
 
 <style>
-body{margin:0;font-family:Arial;background:#f4f6fb}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f6fb;color:#111827}
 .container{max-width:900px;margin:auto;padding:12px}
-h1{text-align:center}
-
-.top{display:flex;gap:8px;margin-bottom:10px}
-.search{flex:1;padding:10px;border-radius:10px;border:1px solid #ccc}
-.ctrlz{padding:6px 10px;background:#111;color:#fff;border-radius:8px;font-size:12px;cursor:pointer}
-
-.reload{
-position:fixed;top:10px;right:10px;
-width:40px;height:40px;border-radius:50%;
-border:none;background:#111;color:#fff;font-size:18px;cursor:pointer;
+h1{text-align:center;margin:0 0 12px;font-size:22px}
+.top{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.search{flex:1;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;font-size:14px}
+.ctrlz{
+  padding:6px 10px;
+  background:#111827;
+  color:#fff;
+  border-radius:8px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
 }
-
-.card{background:#fff;border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:0 4px 10px rgba(0,0,0,0.05)}
-.row{display:flex;gap:10px}
-.left{width:100px}
-
-.btn{width:100%;height:50px;border:none;border-radius:10px;color:#fff;font-weight:bold;cursor:pointer}
+.reload{
+  position:fixed;
+  top:10px;
+  right:10px;
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  border:none;
+  background:#111827;
+  color:#fff;
+  font-size:18px;
+  font-weight:bold;
+  cursor:pointer;
+  box-shadow:0 4px 10px rgba(0,0,0,0.2);
+}
+.status{margin-bottom:10px;font-size:14px;color:#4b5563}
+.card{
+  background:#fff;
+  border-radius:14px;
+  padding:12px;
+  margin-bottom:10px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.05);
+}
+.row{display:flex;gap:10px;align-items:flex-start}
+.left{width:100px;flex-shrink:0}
+.btn{
+  width:100%;
+  height:50px;
+  border:none;
+  border-radius:10px;
+  color:#fff;
+  font-weight:bold;
+  cursor:pointer;
+}
 .copy{background:#000}
 .del{background:#dc2626;margin-top:6px}
+.meta{font-size:14px;line-height:1.5}
+.preview{
+  background:#111827;
+  color:#fff;
+  padding:10px;
+  border-radius:10px;
+  font-size:12px;
+  margin-top:8px;
+  word-break:break-word;
+}
+.ok{color:#16a34a;font-weight:700}
+.bad{color:#dc2626;font-weight:700}
+.empty{
+  background:#fff;
+  border-radius:14px;
+  padding:24px 12px;
+  text-align:center;
+  color:#6b7280;
+}
+.popup{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.4);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  z-index:9999;
+}
+.box{
+  background:#fff;
+  padding:16px;
+  border-radius:12px;
+  max-width:360px;
+  width:100%;
+  box-shadow:0 10px 30px rgba(0,0,0,0.18);
+}
+.popup-text{font-size:15px;line-height:1.5}
+.popup-actions{display:flex;gap:10px;margin-top:12px}
+.popup-btn{
+  flex:1;
+  padding:10px 12px;
+  border:none;
+  border-radius:10px;
+  background:#111827;
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+}
+.popup-btn.danger{background:#dc2626}
+.red{color:#dc2626;font-weight:700}
 
-.preview{background:#111;color:#fff;padding:10px;border-radius:10px;font-size:12px;margin-top:6px}
-
-.ok{color:#16a34a;font-weight:bold}
-.bad{color:#dc2626;font-weight:bold}
-
-/* popup */
-.popup{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center}
-.box{background:#fff;padding:16px;border-radius:12px;max-width:360px;width:100%}
-.popup-btn{margin-top:10px;width:100%;padding:10px;border:none;border-radius:10px;background:#111;color:#fff}
-.red{color:#dc2626;font-weight:bold}
+@media (max-width:560px){
+  .container{padding:10px}
+  h1{font-size:20px;padding-right:48px;padding-left:48px}
+  .left{width:92px}
+  .btn{height:48px;font-size:15px}
+  .search{font-size:13px}
+}
 </style>
 </head>
-
 <body>
 
-<button class="reload" onclick="reloadPage()">↻</button>
+<button class="reload" onclick="reloadData()">↻</button>
 
 <div class="container">
-<h1>Danh sách khách</h1>
+  <h1>Danh sách khách</h1>
 
-<div class="top">
-<input id="search" class="search" placeholder="Tìm email..." oninput="render()">
-<div class="ctrlz" onclick="undo()">Ctrl Z</div>
+  <div class="top">
+    <input id="search" class="search" placeholder="Tìm email..." oninput="render()">
+    <div class="ctrlz" onclick="undo()">Ctrl Z</div>
+  </div>
+
+  <div id="status" class="status">Đang tải...</div>
+  <div id="list"></div>
 </div>
 
-<div id="status"></div>
-<div id="list"></div>
-</div>
-
-<!-- popup -->
 <div id="popup" class="popup">
-<div class="box">
-<div id="popupText"></div>
-<button class="popup-btn" onclick="closePopup()">Huỷ</button>
-</div>
+  <div class="box">
+    <div id="popupText" class="popup-text"></div>
+    <div id="popupActions" class="popup-actions">
+      <button class="popup-btn" onclick="closePopup()">Huỷ</button>
+    </div>
+  </div>
 </div>
 
 <script>
-const ID="1Bvg3Sews-W1881wuI3SMPqtxP2elIWVNX9Z6gUJYxqs";
-const GID="312835306";
+const ID = "1Bvg3Sews-W1881wuI3SMPqtxP2elIWVNX9Z6gUJYxqs";
+const GID = "312835306";
 
-let data=[],lastDeleted=null,deleteTarget=null;
+const STORAGE_KEY = "session_data_v3";
+const LAST_TS_KEY = "session_last_timestamp_v3";
+
+let data = [];
+let lastDeleted = null;
+let deleteTargetKey = null;
 
 function url(){
-return `https://docs.google.com/spreadsheets/d/${ID}/gviz/tq?gid=${GID}&tqx=out:json`;
+  return `https://docs.google.com/spreadsheets/d/${ID}/gviz/tq?gid=${GID}&tqx=out:json`;
+}
+
+function normalizeText(s){
+  return String(s || '').trim();
 }
 
 function preview(s){
-s=String(s||'').replace(/\s+/g,' ').trim();
-if(!s)return "Không có session";
-if(s.length<40)return s;
-return s.slice(0,12)+"..."+s.slice(-12);
+  s = String(s || '').replace(/\s+/g,' ').trim();
+  if(!s) return "Không có session";
+  if(s.length < 40) return s;
+  return s.slice(0,12) + "..." + s.slice(-12);
 }
 
 function emails(s){
-return (s.toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g)||[]);
+  return (String(s || '').toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g) || []);
 }
 
-function check(mail,session){
-mail=mail.toLowerCase().trim();
-const e=emails(session);
-return e.includes(mail);
+function check(mail, session){
+  const email = String(mail || '').toLowerCase().trim();
+  if(!email) return false;
+  return emails(session).includes(email);
 }
 
-function showPopup(html){
-document.getElementById("popupText").innerHTML=html;
-document.getElementById("popup").style.display="flex";
+function parseTimestamp(value){
+  if(value === null || value === undefined || value === '') return 0;
+
+  if(value instanceof Date){
+    const t = value.getTime();
+    return Number.isNaN(t) ? 0 : t;
+  }
+
+  const str = String(value).trim();
+
+  let d = new Date(str);
+  if(!Number.isNaN(d.getTime())) return d.getTime();
+
+  let m = str.match(/Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2}),\s*(\d{1,2}),\s*(\d{1,2}),?\s*(\d{1,2})?\)/);
+  if(m){
+    const year = +m[1];
+    const month = +m[2];
+    const day = +m[3];
+    const hour = +m[4];
+    const minute = +m[5];
+    const second = +(m[6] || 0);
+    return new Date(year, month, day, hour, minute, second).getTime();
+  }
+
+  m = str.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ ,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){
+    const day = +m[1];
+    const month = +m[2] - 1;
+    const year = +m[3];
+    const hour = +(m[4] || 0);
+    const minute = +(m[5] || 0);
+    const second = +(m[6] || 0);
+    return new Date(year, month, day, hour, minute, second).getTime();
+  }
+
+  return 0;
+}
+
+function formatTimeDisplay(value, fallbackText){
+  if(value){
+    const d = new Date(value);
+    if(!Number.isNaN(d.getTime())){
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mm = String(d.getMinutes()).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mo = String(d.getMonth() + 1).padStart(2,'0');
+      return `${hh}h${mm} ${dd}/${mo}`;
+    }
+  }
+  return String(fallbackText || '');
+}
+
+function rowKeyOf(item){
+  return [item.timestamp || '', item.email || '', item.social || '', item.session || ''].join('||');
+}
+
+function saveData(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadLocalData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    data = raw ? JSON.parse(raw) : [];
+  }catch{
+    data = [];
+  }
+}
+
+function saveLastTimestamp(ts){
+  localStorage.setItem(LAST_TS_KEY, String(ts || 0));
+}
+
+function getLastTimestamp(){
+  const v = Number(localStorage.getItem(LAST_TS_KEY) || 0);
+  return Number.isFinite(v) ? v : 0;
+}
+
+function showPopup(html, actionsHtml){
+  document.getElementById("popupText").innerHTML = html;
+  document.getElementById("popupActions").innerHTML = actionsHtml || '<button class="popup-btn" onclick="closePopup()">Huỷ</button>';
+  document.getElementById("popup").style.display = "flex";
 }
 
 function closePopup(){
-document.getElementById("popup").style.display="none";
+  document.getElementById("popup").style.display = "none";
 }
 
-function reloadPage(){
-location.reload(); // FIX RELOAD
-}
-
-function render(){
-const q=document.getElementById("search").value.toLowerCase();
-const list=document.getElementById("list");
-list.innerHTML="";
-let count=0;
-
-data.forEach((x,i)=>{
-if(x.hidden)return;
-if(q && !x.email.toLowerCase().includes(q))return;
-
-count++;
-
-let isMatch = check(x.email,x.session);
-
-let checkText="";
-if(i<5){
-checkText = isMatch
-? '<span class="ok">Khớp email</span>'
-: '<span class="bad">Sai email</span>';
-}
-
-const card=document.createElement("div");
-card.className="card";
-
-card.innerHTML=`
-<div class="row">
-<div class="left">
-<button class="btn copy">COPY</button>
-<button class="btn del">DELETE</button>
-</div>
-<div style="flex:1">
-<div><b>${x.time}</b></div>
-<div>${x.email}</div>
-<div>${x.social}</div>
-<div>${checkText}</div>
-<div class="preview">${preview(x.session)}</div>
-</div>
-</div>
-`;
-
-card.querySelector(".copy").onclick=()=>{
-if(isMatch){
-showPopup(`Đã copy session của email <b>${x.email}</b>`);
-}else{
-showPopup(`Vui lòng xem lại, email <span class="red">KHÔNG khớp</span>`);
-}
-navigator.clipboard.writeText(x.session);
-};
-
-card.querySelector(".del").onclick=()=>{
-deleteTarget=x;
-showPopup(`
-Bạn có chắc muốn xoá?<br><br>
-<button class="popup-btn" onclick="confirmDelete()">Xoá</button>
-`);
-};
-
-list.appendChild(card);
-});
-
-document.getElementById("status").innerText="Tổng: "+count;
+function askDelete(key){
+  deleteTargetKey = key;
+  showPopup(
+    'Bạn có chắc muốn xoá mục này khỏi màn hình không?',
+    `
+      <button class="popup-btn" onclick="closePopup()">Huỷ</button>
+      <button class="popup-btn danger" onclick="confirmDelete()">Xoá</button>
+    `
+  );
 }
 
 function confirmDelete(){
-if(deleteTarget){
-deleteTarget.hidden=true;
-lastDeleted=deleteTarget;
-deleteTarget=null;
-closePopup();
-render();
-}
+  if(!deleteTargetKey) return;
+  const item = data.find(x => rowKeyOf(x) === deleteTargetKey);
+  if(item){
+    item.hidden = true;
+    lastDeleted = item;
+    saveData();
+  }
+  deleteTargetKey = null;
+  closePopup();
+  render();
 }
 
 function undo(){
-if(lastDeleted){
-lastDeleted.hidden=false;
-lastDeleted=null;
-render();
-}
-}
-
-async function load(){
-const r=await fetch(url());
-const t=await r.text();
-const j=JSON.parse(t.match(/setResponse\((.*)\)/s)[1]);
-
-data=j.table.rows.map(r=>{
-const c=r.c||[];
-return{
-time:c[0]?.f||c[0]?.v||'',
-email:c[1]?.v||'',
-social:c[2]?.v||'',
-session:c[3]?.v||'',
-hidden:false
-};
-}).reverse();
-
-render();
+  if(lastDeleted){
+    lastDeleted.hidden = false;
+    saveData();
+    lastDeleted = null;
+    render();
+  }
 }
 
-load();
+async function copySession(item, isCheckedItem){
+  try{
+    await navigator.clipboard.writeText(String(item.session || ''));
+    if(isCheckedItem){
+      if(check(item.email, item.session)){
+        showPopup(`Đã copy session của email <b>${item.email}</b>`);
+      }else{
+        showPopup(`Vui lòng xem lại, email <span class="red">KHÔNG</span> khớp`);
+      }
+    }else{
+      showPopup(`Đã copy session của email <b>${item.email}</b>`);
+    }
+  }catch{
+    showPopup('Copy thất bại');
+  }
+}
+
+function sortDataNewestFirst(){
+  data.sort((a,b) => {
+    const ta = Number(a.timestamp || 0);
+    const tb = Number(b.timestamp || 0);
+    return tb - ta;
+  });
+}
+
+function mergeFreshData(freshData){
+  const map = new Map();
+
+  data.forEach(item => {
+    map.set(rowKeyOf(item), item);
+  });
+
+  freshData.forEach(item => {
+    const key = rowKeyOf(item);
+    const old = map.get(key);
+    if(old){
+      old.time = item.time;
+      old.email = item.email;
+      old.social = item.social;
+      old.session = item.session;
+      old.timestamp = item.timestamp;
+    }else{
+      map.set(key, item);
+    }
+  });
+
+  data = Array.from(map.values());
+  sortDataNewestFirst();
+  saveData();
+}
+
+function render(){
+  const q = document.getElementById("search").value.toLowerCase().trim();
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  const visibleItems = data.filter(x => !x.hidden && (!q || String(x.email || '').toLowerCase().includes(q)));
+  const newestFiveKeys = new Set(visibleItems.slice(0,5).map(rowKeyOf));
+
+  document.getElementById("status").innerText = `Tổng: ${visibleItems.length} khách`;
+
+  if(visibleItems.length === 0){
+    list.innerHTML = '<div class="empty">Không có dữ liệu hiển thị</div>';
+    return;
+  }
+
+  visibleItems.forEach(item => {
+    const key = rowKeyOf(item);
+    const shouldCheck = newestFiveKeys.has(key);
+    const isMatch = shouldCheck ? check(item.email, item.session) : null;
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    let checkLine = '';
+    if(shouldCheck){
+      checkLine = isMatch
+        ? '<div class="ok">Khớp email</div>'
+        : '<div class="bad">Sai email</div>';
+    }
+
+    card.innerHTML = `
+      <div class="row">
+        <div class="left">
+          <button class="btn copy">COPY</button>
+          <button class="btn del">DELETE</button>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="meta"><b>${item.time}</b></div>
+          <div class="meta">${item.email || ''}</div>
+          <div class="meta">${item.social || ''}</div>
+          ${checkLine}
+          <div class="preview">${preview(item.session)}</div>
+        </div>
+      </div>
+    `;
+
+    card.querySelector(".copy").onclick = () => copySession(item, shouldCheck);
+    card.querySelector(".del").onclick = () => askDelete(key);
+
+    list.appendChild(card);
+  });
+}
+
+function parseRow(r){
+  const c = r.c || [];
+
+  const rawTime = c[0]?.v ?? '';
+  const rawTimeText = c[0]?.f ?? c[0]?.v ?? '';
+  const timestamp = parseTimestamp(rawTime) || parseTimestamp(rawTimeText);
+
+  return {
+    time: formatTimeDisplay(timestamp, rawTimeText),
+    email: normalizeText(c[1]?.v ?? ''),
+    social: normalizeText(c[2]?.v ?? ''),
+    session: normalizeText(c[3]?.v ?? ''),
+    timestamp: timestamp,
+    hidden: false
+  };
+}
+
+async function loadData(){
+  loadLocalData();
+  render();
+
+  try{
+    const res = await fetch(url(), { cache: 'no-store' });
+    const text = await res.text();
+    const match = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
+    if(!match) throw new Error("Không đọc được dữ liệu");
+
+    const json = JSON.parse(match[1]);
+    const rows = json.table.rows || [];
+
+    const lastTs = getLastTimestamp();
+    const parsed = rows.map(parseRow).filter(x => x.email || x.social || x.session);
+
+    const freshData = parsed.filter(x => {
+      if(!x.timestamp) return true;
+      return x.timestamp > lastTs;
+    });
+
+    mergeFreshData(freshData);
+
+    const newestTs = parsed.reduce((max, item) => Math.max(max, Number(item.timestamp || 0)), lastTs);
+    saveLastTimestamp(newestTs);
+
+    render();
+  }catch(e){
+    if(data.length === 0){
+      document.getElementById("status").innerText = "Lỗi load dữ liệu";
+      document.getElementById("list").innerHTML = '<div class="empty">Kiểm tra lại quyền chia sẻ Sheet hoặc mạng.</div>';
+    }
+  }
+}
+
+async function reloadData(){
+  document.getElementById("status").innerText = "Đang tải lại...";
+  await loadData();
+}
+
+document.getElementById("popup").addEventListener("click", function(e){
+  if(e.target.id === "popup"){
+    closePopup();
+  }
+});
+
+loadData();
 </script>
-
 </body>
 </html>
