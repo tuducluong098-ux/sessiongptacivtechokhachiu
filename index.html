@@ -313,11 +313,15 @@ function makeRowKey(time, email, social, session){
   return [time || '', email || '', social || '', session || ''].join('||');
 }
 
-function copyText(text, btn){
-  navigator.clipboard.writeText(text || '');
-  const old = btn.innerText;
-  btn.innerText = "Đã copy";
-  setTimeout(() => btn.innerText = old, 1500);
+async function copyText(text, btn){
+  try{
+    await navigator.clipboard.writeText(String(text || ''));
+    const old = btn.innerText;
+    btn.innerText = "Đã copy";
+    setTimeout(() => btn.innerText = old, 1500);
+  }catch{
+    alert("Copy thất bại");
+  }
 }
 
 function refreshPage(){
@@ -365,12 +369,13 @@ function formatTime(value){
 
 function previewText(text){
   const s = String(text || '').replace(/\s+/g,' ').trim();
+  if(!s) return 'Không có session';
   if(s.length <= 36) return s;
   return `${s.slice(0,12)}....${s.slice(-12)}`;
 }
 
-function askDelete(btn, key){
-  cardToDelete = btn.closest('.card');
+function askDeleteByData(card, key){
+  cardToDelete = card;
   deleteKey = key;
   document.getElementById('deletePopup').classList.add('show');
 }
@@ -405,67 +410,118 @@ function resetHiddenItems(){
   load();
 }
 
+function getCellValue(cell){
+  if(!cell) return '';
+  if(typeof cell.f === 'string' && cell.f !== '') return cell.f;
+  if(cell.v === null || cell.v === undefined) return '';
+  if(typeof cell.v === 'string') return cell.v;
+  if(typeof cell.v === 'number' || typeof cell.v === 'boolean') return String(cell.v);
+
+  try{
+    return JSON.stringify(cell.v, null, 2);
+  }catch{
+    return String(cell.v);
+  }
+}
+
+function buildCard(time, email, social, session, rowKey){
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const row = document.createElement('div');
+  row.className = 'row';
+
+  const copyWrap = document.createElement('div');
+  copyWrap.className = 'copy-wrap';
+
+  const actionStack = document.createElement('div');
+  actionStack.className = 'action-stack';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'copy-btn';
+  copyBtn.type = 'button';
+  copyBtn.textContent = 'COPY';
+  copyBtn.addEventListener('click', () => copyText(session, copyBtn));
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'delete-btn';
+  deleteBtn.type = 'button';
+  deleteBtn.textContent = 'DELETE';
+  deleteBtn.addEventListener('click', () => askDeleteByData(card, rowKey));
+
+  actionStack.appendChild(copyBtn);
+  actionStack.appendChild(deleteBtn);
+  copyWrap.appendChild(actionStack);
+
+  const infoWrap = document.createElement('div');
+  infoWrap.className = 'info-wrap';
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.innerHTML = `
+    <div><span class="label">Thời gian:</span>${escapeHtml(time)}</div>
+    <div><span class="label">Email:</span>${escapeHtml(email)}</div>
+    <div><span class="label">FB/Zalo:</span>${escapeHtml(social)}</div>
+    <div><span class="label">Session:</span></div>
+  `;
+
+  const preview = document.createElement('div');
+  preview.className = 'preview';
+  preview.textContent = previewText(session);
+
+  infoWrap.appendChild(meta);
+  infoWrap.appendChild(preview);
+
+  row.appendChild(copyWrap);
+  row.appendChild(infoWrap);
+  card.appendChild(row);
+
+  return card;
+}
+
 async function load(){
   try{
     const res = await fetch(getUrl());
     const text = await res.text();
     const match = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
     if(!match) throw new Error('Không đọc được dữ liệu');
-    const json = JSON.parse(match[1]);
 
+    const json = JSON.parse(match[1]);
     const rows = json.table.rows || [];
-    const data = rows.map(r => (r.c || []).map(c => c ? (c.f || c.v || '') : ''));
+
+    const data = rows.map(r => (r.c || []).map(getCellValue));
     data.reverse();
 
-    let html = '<div class="card-list">';
+    const table = document.getElementById("table");
+    table.innerHTML = '';
+
+    const cardList = document.createElement('div');
+    cardList.className = 'card-list';
+
     let visibleCount = 0;
 
     data.forEach((row) => {
       const time = formatTime(row[0] || '');
-      const email = row[1] || '';
-      const social = row[2] || '';
-      const session = row[row.length - 1] || '';
-      const preview = previewText(session);
-      const safeSession = encodeURIComponent(String(session));
+      const email = String(row[1] || '');
+      const social = String(row[2] || '');
+      const session = String(row[row.length - 1] || '');
       const rowKey = makeRowKey(time, email, social, session);
-      const safeRowKey = encodeURIComponent(rowKey);
 
       if(isHiddenItem(rowKey)) return;
 
       visibleCount++;
-
-      html += `
-        <div class="card">
-          <div class="row">
-            <div class="copy-wrap">
-              <div class="action-stack">
-                <button class="copy-btn" onclick="copyText(decodeURIComponent('${safeSession}'), this)">COPY</button>
-                <button class="delete-btn" onclick="askDelete(this, decodeURIComponent('${safeRowKey}'))">DELETE</button>
-              </div>
-            </div>
-            <div class="info-wrap">
-              <div class="meta">
-                <div><span class="label">Thời gian:</span>${escapeHtml(time)}</div>
-                <div><span class="label">Email:</span>${escapeHtml(email)}</div>
-                <div><span class="label">FB/Zalo:</span>${escapeHtml(social)}</div>
-                <div><span class="label">Session:</span></div>
-              </div>
-              <div class="preview">${escapeHtml(preview)}</div>
-            </div>
-          </div>
-        </div>`;
+      const card = buildCard(time, email, social, session, rowKey);
+      cardList.appendChild(card);
     });
-
-    html += '</div>';
 
     document.getElementById("status").innerText = `Tổng: ${visibleCount} khách`;
 
     if(visibleCount === 0){
-      document.getElementById("table").innerHTML = '<div class="empty">Không còn mục nào đang hiển thị</div>';
+      table.innerHTML = '<div class="empty">Không còn mục nào đang hiển thị</div>';
       return;
     }
 
-    document.getElementById("table").innerHTML = html;
+    table.appendChild(cardList);
 
   }catch(e){
     document.getElementById("status").innerText = "Lỗi load dữ liệu";
