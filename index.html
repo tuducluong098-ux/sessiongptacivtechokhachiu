@@ -6,127 +6,182 @@
 <title>Danh sách khách gửi session</title>
 
 <style>
-body{margin:0;font-family:Arial;background:#f4f6fb;color:#111}
+body{margin:0;font-family:Arial;background:#f4f6fb}
 .container{max-width:900px;margin:auto;padding:12px}
-h1{text-align:center;margin:0 0 14px;font-size:22px}
-.status{margin-bottom:10px;font-size:14px;color:#555}
-.top-actions{display:flex;justify-content:flex-end;margin-bottom:10px}
-.small-btn{border:none;border-radius:10px;background:#111;color:#fff;padding:8px 12px;font-weight:700}
-.card{background:#fff;border-radius:14px;padding:12px;box-shadow:0 4px 10px rgba(0,0,0,0.05);margin-bottom:12px}
+h1{text-align:center;margin-bottom:10px}
+.top{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+input{flex:1;padding:10px;border-radius:10px;border:1px solid #ccc}
+button{border:none;border-radius:10px;padding:8px 12px;font-weight:bold;cursor:pointer}
+.small{background:#111;color:#fff}
+.card{background:#fff;border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:0 4px 10px rgba(0,0,0,0.05)}
 .row{display:flex;gap:10px}
-.copy-wrap{width:100px}
-.copy-btn,.delete-btn{width:100%;height:55px;border:none;border-radius:12px;font-weight:bold;color:#fff}
-.copy-btn{background:#000}
-.delete-btn{background:#dc2626;margin-top:6px}
-.meta{font-size:14px;margin-bottom:6px}
-.label{color:#777;font-weight:700}
-.preview{background:#0b1530;color:#fff;padding:10px;border-radius:12px;font-size:12px}
-.refresh-btn{position:fixed;top:12px;right:12px;width:40px;height:40px;border-radius:50%;border:none;background:#111;color:#fff}
+.left{width:100px}
+.copy{background:#000;color:#fff;height:50px;width:100%}
+.del{background:#dc2626;color:#fff;height:50px;width:100%;margin-top:6px}
+.preview{background:#111;color:#fff;padding:10px;border-radius:10px;font-size:12px;cursor:pointer}
+.ok{color:#16a34a;font-weight:bold}
+.bad{color:#dc2626;font-weight:bold;cursor:pointer}
+.none{color:#b45309;font-weight:bold}
+.popup{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center}
+.box{background:#fff;padding:16px;border-radius:12px;max-width:360px;width:100%}
 </style>
 </head>
 
 <body>
 
-<button class="refresh-btn" onclick="load()">↻</button>
-
 <div class="container">
 <h1>Danh sách khách gửi session</h1>
 
-<div class="top-actions">
-<button class="small-btn" onclick="localStorage.clear();load()">Hiện lại mục đã xoá</button>
+<div class="top">
+<input id="search" placeholder="Tìm email..." oninput="render()">
+<button class="small" onclick="undo()">Hiện lại mục vừa xoá</button>
 </div>
 
-<div id="status">Đang tải...</div>
-<div id="table"></div>
+<div id="status"></div>
+<div id="stats"></div>
+<div id="list"></div>
+</div>
+
+<div id="popup" class="popup">
+<div class="box">
+<div id="popupText"></div>
+<br>
+<button onclick="closePopup()">Đóng</button>
+</div>
 </div>
 
 <script>
-const SHEET_ID="1Bvg3Sews-W1881wuI3SMPqtxP2elIWVNX9Z6gUJYxqs";
+const ID="1Bvg3Sews-W1881wuI3SMPqtxP2elIWVNX9Z6gUJYxqs";
 const GID="312835306";
 
-function getUrl(){
-return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${GID}&tqx=out:json`;
+let data=[],lastDeleted=null;
+
+function url(){
+return `https://docs.google.com/spreadsheets/d/${ID}/gviz/tq?gid=${GID}&tqx=out:json`;
 }
 
-function escapeHtml(s){
-return String(s||'')
-.replace(/&/g,"&amp;")
-.replace(/</g,"&lt;")
-.replace(/>/g,"&gt;");
-}
-
-function previewText(s){
+function preview(s){
 s=String(s||'').replace(/\s+/g,' ').trim();
 if(!s)return "Không có session";
 if(s.length<40)return s;
-return s.slice(0,15)+"..."+s.slice(-15);
+return s.slice(0,12)+"..."+s.slice(-12);
 }
 
-async function copyText(text,btn){
-await navigator.clipboard.writeText(text||'');
-btn.innerText="Đã copy";
-setTimeout(()=>btn.innerText="COPY",1200);
+function emails(s){
+return (s.toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g)||[]);
 }
 
-async function load(){
-try{
-const res=await fetch(getUrl());
-const txt=await res.text();
-const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
+function check(mail,session){
+mail=mail.toLowerCase().trim();
+const e=emails(session);
 
-const rows=json.table.rows||[];
-const table=document.getElementById("table");
-table.innerHTML="";
+if(!e.length)return {t:'none',msg:'Không thấy email'};
+if(e.includes(mail))return {t:'ok',msg:'Khớp email'};
+return {t:'bad',msg:'Không khớp',list:e,mail};
+}
 
-let count=0;
+function show(res){
+let html=`Email gốc: <b>${res.mail}</b><br><br>`;
+html+=`Email trong session:<br>`+res.list.map(x=>"• "+x).join("<br>");
+document.getElementById("popupText").innerHTML=html;
+document.getElementById("popup").style.display="flex";
+}
 
-rows.reverse().forEach(r=>{
-const c=r.c||[];
+function closePopup(){
+document.getElementById("popup").style.display="none";
+}
 
-const time=c[0]?.f||c[0]?.v||'';
-const email=c[1]?.v||'';
-const social=c[2]?.v||'';
-const session=c[3]?.v||''; // 🔥 FIX QUAN TRỌNG
+function render(){
+const q=document.getElementById("search").value.toLowerCase();
+const list=document.getElementById("list");
+list.innerHTML="";
+let count=0,stat={};
 
-const key=time+email+social+session;
-if(localStorage.getItem(key))return;
+data.forEach(x=>{
+if(x.hidden)return;
+if(q && !x.email.toLowerCase().includes(q))return;
 
 count++;
+
+const c=check(x.email,x.session);
 
 const card=document.createElement("div");
 card.className="card";
 
+let cls="none";
+if(c.t==="ok")cls="ok";
+if(c.t==="bad")cls="bad";
+
 card.innerHTML=`
 <div class="row">
-<div class="copy-wrap">
-<button class="copy-btn">COPY</button>
-<button class="delete-btn">DELETE</button>
+<div class="left">
+<button class="copy">COPY</button>
+<button class="del">DELETE</button>
 </div>
 <div style="flex:1">
-<div class="meta"><span class="label">Thời gian:</span> ${escapeHtml(time)}</div>
-<div class="meta"><span class="label">Email:</span> ${escapeHtml(email)}</div>
-<div class="meta"><span class="label">FB/Zalo:</span> ${escapeHtml(social)}</div>
-<div class="meta"><span class="label">Session:</span></div>
-<div class="preview">${escapeHtml(previewText(session))}</div>
+<div><b>${x.time}</b></div>
+<div>${x.email}</div>
+<div>${x.social}</div>
+<div class="${cls}">${c.msg}</div>
+<div class="preview">${preview(x.session)}</div>
 </div>
-</div>`;
+</div>
+`;
 
-const copyBtn=card.querySelector(".copy-btn");
-copyBtn.onclick=()=>copyText(session,copyBtn);
-
-const delBtn=card.querySelector(".delete-btn");
-delBtn.onclick=()=>{
-localStorage.setItem(key,1);
-card.remove();
+card.querySelector(".copy").onclick=()=>{
+navigator.clipboard.writeText(x.session);
 };
 
-table.appendChild(card);
+card.querySelector(".del").onclick=()=>{
+x.hidden=true;
+lastDeleted=x;
+render();
+};
+
+card.querySelector(".preview").onclick=()=>{
+if(c.t==="bad")show(c);
+if(c.t==="none"){
+document.getElementById("popupText").innerText="Không tìm thấy email trong session";
+document.getElementById("popup").style.display="flex";
+}
+};
+
+list.appendChild(card);
+
+const d=x.time.slice(-5);
+stat[d]=(stat[d]||0)+1;
 });
 
-document.getElementById("status").innerText=`Tổng: ${count} khách`;
+document.getElementById("status").innerText="Tổng: "+count;
 
-}catch{
-document.getElementById("status").innerText="Lỗi load dữ liệu";
+document.getElementById("stats").innerHTML=
+Object.entries(stat).map(([d,v])=>`<span>${d}: ${v}</span>`).join(" | ");
+}
+
+async function load(){
+const r=await fetch(url());
+const t=await r.text();
+const j=JSON.parse(t.match(/setResponse\((.*)\)/s)[1]);
+
+data=j.table.rows.map(r=>{
+const c=r.c||[];
+return{
+time:c[0]?.f||c[0]?.v||'',
+email:c[1]?.v||'',
+social:c[2]?.v||'',
+session:c[3]?.v||'', // FIX
+hidden:false
+};
+}).reverse();
+
+render();
+}
+
+function undo(){
+if(lastDeleted){
+lastDeleted.hidden=false;
+lastDeleted=null;
+render();
 }
 }
 
